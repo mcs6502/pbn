@@ -76,6 +76,14 @@ parsePuzzle:{[lines]
 
 \d .
 
+// choose k from list of n
+comb:{[k;l]
+  n:count l;
+  $[k<1;();
+    k=1;enlist each l;
+    k<n;raze {y[z],/:comb[x;(1+z)_y]}[k-1;l] each til 1+n-k;
+    enlist l]}
+
 // creates initial state if not set in file
 initPuzzle:{[p]
   if[not any`state=key p;
