@@ -54,12 +54,9 @@ toDict:{[pairs]
   :k!v
   };
 
-// 0i -> `int$()
 // 1i -> ,1i
 // 2 1i -> 2 1i
-wrapClue:{[x]
-  :$[-6h=type x;$[0i=x;`int$();enlist x];x]
-  };
+wrapClue:{(),x}
 
 parsePuzzle:{[lines]
   p:toDict flatten raze lexLines lines;
@@ -74,7 +71,10 @@ parsePuzzle:{[lines]
   :p
   };
 
-\d .
+\d .ng
+
+// qidioms #144. histogram
+hist:{@[x;y;+;1]}
 
 // choose k from list of n
 comb:{[k;l]
@@ -84,19 +84,123 @@ comb:{[k;l]
     k<n;raze {y[z],/:comb[x;(1+z)_y]}[k-1;l] each til 1+n-k;
     enlist l]}
 
-// creates initial state if not set in file
+// multichoose (multisets of length y on x symbols)
+arrange:{$[x>0;hist[y#0] each comb[x;til x+y-1]-\:til x;enlist y#0]}
+
+fillgaps:{n:count y; k:$[n>2;n-2;0]; v:$[n>1;raze(1;k;1)#'0 1 0;enlist 0]; v+/:arrange[x-k+sum y;n]}
+expand:{v:raze flip(x;y); raze v#'count[v]#".M"}
+makeline:{expand[;y] each fillgaps[x;y]}
+pickgood:{v:(count y)#enlist x; y where all each (y=v)|null v}
+// qidioms #142. binomial coefficients
+fac:{[n]$[n>1;n*fac[n-1];1]}
+binn:{[n;k]fac[n]%fac[n-k]*fac[k]}
+// http://mathworld.wolfram.com/Multichoose.html
+maxlines:{binn[`float$x+y-1;`float$y-1]}
+
+\d .
+
 initPuzzle:{[p]
+  width:p`width;
+  height:p`height;
+
+  // unfold the puzzle into one dimension
+  clues:p[`rows],p`columns;
+  coords:((til height),\:(::)),(::),/:til width;
+  ids:til count clues;
+  labels:(`$"row ",/:string 1+til height),`$"col ",/:string 1+til width;
+  sizes:(height#width),width#height;
+
+  t:([id:ids] clue:clues; coord:coords; label:labels; size:sizes);
+
+  // properly terminate each clue
+  t:update clue:{i:where not 0=last each x; x[i]:x[i],\:0i; :x} clue from t;
+
+  // calculate the number of "stretchy" blanks that are to be apportioned
+  t:update gap:size-{n:count x; $[n>2;n-2;0]+sum x} each clue from t;
+
+  // calculate static solution complexity of each line
+  t:update weight:{xlog[2] .ng.maxlines[x;count y]}'[gap;clue] from t;
+  t:update %[weight-min weight;max weight-min weight] from t;
+  t:update ncombs:{.ng.maxlines[x;count y]}'[gap;clue] from t;
+
+  // check that each clue is within its size limit
+  toolong:exec label from t where gap<0;
+  if[count toolong; -2"Clue too long: ",", "sv string toolong; :()];
+
+  // make lists of intersecting lines that can be affected by edits
+  t:update peers:{$[z<y; y+til x; til y]}[width;height]each id from t;
+
+  // create initial state if not set in file
   if[not any`state=key p;
-    p[`state]:p[`height`width]#" "];
-  :p;
+    p[`state]:(height;width)#" "];
+
+  // a puzzle is the initial state plus the rules for transforming it
+  (p`state;t)
   };
 
 solvePuzzle:{[p]
   p:initPuzzle p;
-  :p
+  if[()~p;:p];
+  s:p[0];
+  t:p[1];
+  solve[`symbol$();t;s]
+  }
+
+solve:{[path;t;s]
+  //-1"solve ",", "sv string each path;
+  //show s;
+  // calculate the percentage of unfilled cells in each line
+  foo2:select id, weight, size, unfilled:{sum null x . y}[s]each coord from t;
+  foo:update unfilled:unfilled%size from foo2;
+  // only consider the lines that have not been solved already
+  foo:select from foo where unfilled>0;
+  // calculate the solution priority of a line as a weighted average
+  // of its static solution complexity and the percentage of untouched
+  // cells in it
+  foo:`priority xasc update priority:0.25*unfilled+3*weight from foo;
+  nextid:first exec id from foo;
+  //show foo;
+  //-1"nextid=",string[nextid];
+  //u:select from t where id in 13 14;
+  if[null nextid;-1"Found a solution:";show s;:s];
+  d:exec from t where id=nextid;
+  //.ng.pickgood[s . d`coord;].ng.makeline[d`size;d`clue];
+  retval:{[path;t;s;d;l]
+    //-1 l;
+    i:d`coord;
+    o:.[s;i];
+    s[i[0];i[1]]:l;
+    affectedPeers:(d`peers) where (null o) & not null l;
+    //-1", "sv string each affectedPeers;
+    numPeerSolutions:{[s;d]
+      //show d;
+      //show s;
+      //-1 "all lines:";
+      //show .ng.makeline[d`size;d`clue];
+      //-1 "good lines:";
+      goodLines:.ng.pickgood[s . d`coord] .ng.makeline[d`size;d`clue];
+      //show goodLines;
+      //-1 string[d`label],": ncombs=",string[d`ncombs],", nlines=",string ns;
+      count goodLines
+      }[s] each select from t where id in affectedPeers;
+    //show numPeerSolutions;
+    if[not any numPeerSolutions=0;
+      //-1 string[d`label]," ",l;
+      :solve[path,d`label;t;s]]
+    ::
+    }[path;t;s;d] each .ng.pickgood[s . d`coord] .ng.makeline[d`size;d`clue];
+  //{[t;s;d;l]
+  //  //-1 string[d`label],": ",l;
+  //  i:d`coord;
+  //  o:.[s;i];
+  //  s[i[0];i[1]]:l;
+  //  solve[t;s]
+  //  }[t;s;d] each .ng.pickgood[s . d`coord] .ng.makeline[d`size;d`clue]
+  //-1"returned";
+  retval
   };
 
-showPuzzle:{[p] show p`state}
+showPuzzle:{[p] p}
 
 processFile:{[x] showPuzzle solvePuzzle .non.parsePuzzle read0 hsym`$x};
 
