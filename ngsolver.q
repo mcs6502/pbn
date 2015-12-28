@@ -88,8 +88,10 @@ comb:{[k;l]
 arrange:{$[x>0;hist[y#0] each comb[x;til x+y-1]-\:til x;enlist y#0]}
 
 fillgaps:{n:count y; k:$[n>2;n-2;0]; v:$[n>1;raze(1;k;1)#'0 1 0;enlist 0]; v+/:arrange[x-k+sum y;n]}
+// (1 2 0;3 4 0) -> ".MMM..MMMM"
 expand:{v:raze flip(x;y); raze v#'count[v]#".M"}
-makeline:{expand[;y] each fillgaps[x;y]}
+// generate all possible lines of length n for clue c
+genlines:{[n; c] expand[;c] each fillgaps[n;c]}
 pickgood:{v:(count y)#enlist x; y where all each (y=v)|null v}
 // qidioms #142. binomial coefficients
 fac:{[n]$[n>1;n*fac[n-1];1]}
@@ -130,6 +132,9 @@ initPuzzle:{[p]
   // make lists of intersecting lines that can be affected by edits
   t:update peers:{$[z<y; y+til x; til y]}[width;height]each id from t;
 
+  // pre-generate all lines
+  t:update lines:.ng.genlines'[size;clue] from t;
+
   // create initial state if not set in file
   if[not any`state=key p;
     p[`state]:(height;width)#" "];
@@ -164,7 +169,6 @@ solve:{[path;t;s]
   //u:select from t where id in 13 14;
   if[null nextid;-1"Found a solution:";show s;:s];
   d:exec from t where id=nextid;
-  //.ng.pickgood[s . d`coord;].ng.makeline[d`size;d`clue];
   retval:{[path;t;s;d;l]
     //-1 l;
     i:d`coord;
@@ -175,10 +179,8 @@ solve:{[path;t;s]
     numPeerSolutions:{[s;d]
       //show d;
       //show s;
-      //-1 "all lines:";
-      //show .ng.makeline[d`size;d`clue];
       //-1 "good lines:";
-      goodLines:.ng.pickgood[s . d`coord] .ng.makeline[d`size;d`clue];
+      goodLines:.ng.pickgood[s . d`coord;d`lines];
       //show goodLines;
       //-1 string[d`label],": ncombs=",string[d`ncombs],", nlines=",string ns;
       count goodLines
@@ -188,14 +190,7 @@ solve:{[path;t;s]
       //-1 string[d`label]," ",l;
       :solve[path,d`label;t;s]]
     ::
-    }[path;t;s;d] each .ng.pickgood[s . d`coord] .ng.makeline[d`size;d`clue];
-  //{[t;s;d;l]
-  //  //-1 string[d`label],": ",l;
-  //  i:d`coord;
-  //  o:.[s;i];
-  //  s[i[0];i[1]]:l;
-  //  solve[t;s]
-  //  }[t;s;d] each .ng.pickgood[s . d`coord] .ng.makeline[d`size;d`clue]
+    }[path;t;s;d] each .ng.pickgood[s . d`coord;d`lines];
   //-1"returned";
   retval
   };
