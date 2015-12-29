@@ -98,6 +98,9 @@ fac:{[n]$[n>1;n*fac[n-1];1]}
 binn:{[n;k]fac[n]%fac[n-k]*fac[k]}
 // http://mathworld.wolfram.com/Multichoose.html
 maxlines:{binn[`float$x+y-1;`float$y-1]}
+// returns a hash of puzzle state (uses md5 because sha is not available)
+h:{`$""sv string md5 raze x}
+//h:{`$raze x}
 
 \d .
 
@@ -148,11 +151,22 @@ solvePuzzle:{[p]
   if[()~p;:p];
   s:p[0];
   t:p[1];
-  solve[`symbol$();t;s]
+  h:.ng.h[s];
+  .ng.var.states:(`;h)!(();s);
+  solvebatch[t;enlist h];
   }
 
-solve:{[path;t;s]
-  //-1"solve ",", "sv string each path;
+solvebatch:{[t;hs]
+  if[count hs;
+    hsn:();
+    hsn,:raze solve[t] each hs;
+    solvebatch[t;hsn]]
+  }
+
+solve:{[t;h]
+  //-1"solving ",string h;
+  s:.ng.var.states[h];
+  if[not count s;:()];
   //show s;
   // calculate the percentage of unfilled cells in each line
   foo2:select id, weight, size, unfilled:{sum null x . y}[s]each coord from t;
@@ -167,31 +181,44 @@ solve:{[path;t;s]
   //show foo;
   //-1"nextid=",string[nextid];
   //u:select from t where id in 13 14;
-  if[null nextid;-1"Found a solution:";show s;:s];
+  if[null nextid;-1"Found a solution:";show s;:()];
   d:exec from t where id=nextid;
-  retval:{[path;t;s;d;l]
+  retval:{[t;s;d;l]
     //-1 l;
     i:d`coord;
     o:.[s;i];
+    // update the state with the new line
     s[i[0];i[1]]:l;
-    affectedPeers:(d`peers) where (null o) & not null l;
-    //-1", "sv string each affectedPeers;
-    numPeerSolutions:{[s;d]
-      //show d;
-      //show s;
-      //-1 "good lines:";
-      goodLines:.ng.pickgood[s . d`coord;d`lines];
-      //show goodLines;
-      //-1 string[d`label],": ncombs=",string[d`ncombs],", nlines=",string ns;
-      count goodLines
-      }[s] each select from t where id in affectedPeers;
-    //show numPeerSolutions;
-    if[not any numPeerSolutions=0;
-      //-1 string[d`label]," ",l;
-      :solve[path,d`label;t;s]]
-    ::
-    }[path;t;s;d] each .ng.pickgood[s . d`coord;d`lines];
+    // calculate the hash of the new state
+    h:.ng.h[s];
+    accepted:0b;
+    // skip the new state if already seen via another path
+    if[not h in key .ng.var.states;
+      // register the hash of the state in case it gets rejected
+      .ng.var.states[h]:();
+      // check peers where cells transition from space to blank or mark
+      affectedPeers:(d`peers) where (null o) & not null l;
+      //-1", "sv string each affectedPeers;
+      numPeerSolutions:{[s;d]
+        //show d;
+        //show s;
+        //-1 "good lines:";
+        goodLines:.ng.pickgood[s . d`coord;d`lines];
+        //show goodLines;
+        //-1 string[d`label],": ncombs=",string[d`ncombs],", nlines=",string ns;
+        count goodLines
+        }[s] each select from t where id in affectedPeers;
+      //show numPeerSolutions;
+      if[not any numPeerSolutions=0;
+        //-1 string[d`label]," ",l;
+        //:solve[d`label;t;s]]
+        .ng.var.states[h]:s;
+        accepted:1b];
+      ];
+    $[accepted;h;`symbol$()]
+    }[t;s;d] each .ng.pickgood[s . d`coord;d`lines];
   //-1"returned";
+  //show retval;
   retval
   };
 
