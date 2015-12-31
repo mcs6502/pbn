@@ -92,15 +92,12 @@ fillgaps:{n:count y; k:$[n>2;n-2;0]; v:$[n>1;raze(1;k;1)#'0 1 0;enlist 0]; v+/:a
 expand:{v:raze flip(x;y); raze v#'count[v]#".M"}
 // generate all possible lines of length n for clue c
 genlines:{[n; c] expand[;c] each fillgaps[n;c]}
-pickgood:{v:(count y)#enlist x; y where all each (y=v)|null v}
+pickgood:{v:(count y)#enlist x; all each (y=v)|null v}
 // qidioms #142. binomial coefficients
 fac:{[n]$[n>1;n*fac[n-1];1]}
 binn:{[n;k]fac[n]%fac[n-k]*fac[k]}
 // http://mathworld.wolfram.com/Multichoose.html
 maxlines:{binn[`float$x+y-1;`float$y-1]}
-// returns a hash of puzzle state (uses md5 because sha is not available)
-h:{`$""sv string md5 raze x}
-//h:{`$raze x}
 
 \d .
 
@@ -151,9 +148,13 @@ solvePuzzle:{[p]
   if[()~p;:p];
   s:p[0];
   t:p[1];
-  h:.ng.h[s];
-  .ng.var.states:(`;h)!(();s);
-  solvebatch[t;enlist h];
+  h:count[t]#`int$0N;
+  //-1"### type h0=",string[type h];
+  .ng.var.states:(enlist h)!enlist s;
+  .ng.var.t:.z.t;
+  .ng.var.i:0;
+  .ng.var.j:0;
+  solvebatch[t;enlist h]
   }
 
 solvebatch:{[t;hs]
@@ -164,59 +165,98 @@ solvebatch:{[t;hs]
   }
 
 solve:{[t;h]
+  .ng.var.i:.ng.var.i+1;
+  t1:.z.t;
+  dt:t1-.ng.var.t;
+  if[dt>1000;-1"dt=",string[dt],", n=",string[.ng.var.i-.ng.var.j],", nstates=",string[count .ng.var.states];.ng.var.j:.ng.var.i;.ng.var.t:t1];
+  //-1"### type h=",string[type h];
   //-1"solving ",string h;
   s:.ng.var.states[h];
-  if[not count s;:()];
+  //-1"### a";
+  if[not count first s;:()];
+  //-1"### b";
   //show s;
   // calculate the percentage of unfilled cells in each line
   foo2:select id, weight, size, unfilled:{sum null x . y}[s]each coord from t;
   foo:update unfilled:unfilled%size from foo2;
   // only consider the lines that have not been solved already
   foo:select from foo where unfilled>0;
+  //-1"### c";
   // calculate the solution priority of a line as a weighted average
   // of its static solution complexity and the percentage of untouched
   // cells in it
   foo:`priority xasc update priority:0.25*unfilled+3*weight from foo;
   nextid:first exec id from foo;
+  //-1"### d";
   //show foo;
   //-1"nextid=",string[nextid];
   //u:select from t where id in 13 14;
   if[null nextid;-1"Found a solution:";show s;:()];
+  //-1"### e";
   d:exec from t where id=nextid;
-  retval:{[t;s;d;l]
+  //-1"### f s=";
+  //show s;
+  retval:{[t;h;s;d;li]
+  //-1"### g";
+    l:d[`lines][li];
+  //-1"### h";
     //-1 l;
     i:d`coord;
+  //-1"### i";
     o:.[s;i];
+  //-1"### j0 i=";
+  //show i;
+  //-1"### j1 l=";
+  //show l;
+  //-1"### j2 s=";
+  //show s;
     // update the state with the new line
     s[i[0];i[1]]:l;
+  //-1"### k";
     // calculate the hash of the new state
-    h:.ng.h[s];
+    h[d`id]:`int$li;
+   // -1"###   type h=",string[type h],", type li=",string[type li];
+  //-1"### id=",string[d`id],", li=",string[li],", h=";show h;
     accepted:0b;
     // skip the new state if already seen via another path
     if[not h in key .ng.var.states;
+    //-1"### a";
       // register the hash of the state in case it gets rejected
-      .ng.var.states[h]:();
+      .ng.var.states[enlist h]:enlist();
       // check peers where cells transition from space to blank or mark
       affectedPeers:(d`peers) where (null o) & not null l;
       //-1", "sv string each affectedPeers;
-      numPeerSolutions:{[s;d]
+    //-1"### b";
+      haveSolutions:{[s;d]
         //show d;
         //show s;
         //-1 "good lines:";
+    //-1"### c";
         goodLines:.ng.pickgood[s . d`coord;d`lines];
+    //-1"### d";
         //show goodLines;
         //-1 string[d`label],": ncombs=",string[d`ncombs],", nlines=",string ns;
-        count goodLines
+        any goodLines
         }[s] each select from t where id in affectedPeers;
-      //show numPeerSolutions;
-      if[not any numPeerSolutions=0;
+      //show haveSolutions;
+    //-1"### e";
+      if[all haveSolutions;
         //-1 string[d`label]," ",l;
         //:solve[d`label;t;s]]
-        .ng.var.states[h]:s;
+    //-1"### .ng.var.states: "; show .ng.var.states;
+    //-1"### h: "; show h;
+    //-1"### s: "; show s;
+        .ng.var.states[enlist h]:enlist s;
+    //-1"### new .ng.var.states: "; show .ng.var.states;
         accepted:1b];
       ];
-    $[accepted;h;`symbol$()]
-    }[t;s;d] each .ng.pickgood[s . d`coord;d`lines];
+    //-1"### f h=";
+    //show h;
+    returning:$[accepted;h;`int$()];
+    //-1"### returning: ",string[type returning],", count=",string count returning;
+    //-1"about to return";
+    returning
+    }[t;h;s;d] each where .ng.pickgood[s . d`coord;d`lines];
   //-1"returned";
   //show retval;
   retval
