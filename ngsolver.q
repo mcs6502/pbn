@@ -99,6 +99,23 @@ binn:{[n;k]fac[n]%fac[n-k]*fac[k]}
 // http://mathworld.wolfram.com/Multichoose.html
 maxlines:{binn[`float$x+y-1;`float$y-1]}
 
+\d .rb
+
+// CHRIS OKASAKI (1999). Red-black trees in a functional setting.
+// Journal of Functional Programming, 9, pp 471-477
+
+cmp:{n:(count x)&count y;i:first where not(n#x)=n#y;$[not null i;z[x[i];y i];z[count[x];count y]]}
+lt:cmp[;;<]
+empty:`E
+member:{if[y~`E;:0b];e:y`e;$[lt[x;e];member[x;y`a];x~e;1b;member[x;y`b]]}
+makeBlack:{x[`colour]:`B;x}
+ins:{if[y~`E;:`colour`a`e`b!(`R;`E;x;`E)];e:y`e;$[lt[x;e];balance`colour`a`e`b!(y`colour;ins[x;y`a];e;y`b);x~e;`colour`a`e`b!(y`colour;y`a;x;y`b);balance`colour`a`e`b!(y`colour;y`a;e;ins[x;y`b])]}
+insertNode:{[x;s] makeBlack ins[x;s]}
+isColour:{$[99h~type y;$[x~y`colour;1b;0b];0b]}
+isBlack:isColour[`B]
+isRed:isColour[`R]
+balance:{$[isBlack x;$[isRed a:x`a;$[isRed a`a;`colour`a`e`b!(`R;(`colour`a`e`b!(`B;(a`a)`a;(a`a)`e;(a`a)`b));a`e;`colour`a`e`b!(`B;a`b;x`e;x`b));isRed a`b;`colour`a`e`b!(`R;`colour`a`e`b!(`B;a`a;a`e;(a`b)`a);(a`b)`e;`colour`a`e`b!(`B;(a`b)`b;x`e;x`b));x];isRed b:x`b;$[isRed b`a;`colour`a`e`b!(`R;`colour`a`e`b!(`B;x`a;x`e;(b`a)`a);(b`a)`e;`colour`a`e`b!(`B;(b`a)`b;b`e;b`b));isRed b`b;`colour`a`e`b!(`R;`colour`a`e`b!(`B;x`a;x`e;b`a);b`e;`colour`a`e`b!(`B;(b`b)`a;(b`b)`e;(b`b)`b));x];x];x]}
+
 \d .
 
 initPuzzle:{[p]
@@ -150,11 +167,12 @@ solvePuzzle:{[p]
   t:p[1];
   h:count[t]#`int$0N;
   //-1"### type h0=",string[type h];
-  .ng.var.states:(enlist h)!enlist s;
+  .ng.var.states:.rb.empty;
   .ng.var.t:.z.t;
   .ng.var.i:0;
   .ng.var.j:0;
-  solvebatch[t;enlist h]
+  .ng.var.nstates:0;
+  solvebatch[t;enlist (h;s)]
   }
 
 solvebatch:{[t;hs]
@@ -164,16 +182,22 @@ solvebatch:{[t;hs]
     solvebatch[t;hsn]]
   }
 
-solve:{[t;h]
+solve:{[t;hs]
   .ng.var.i:.ng.var.i+1;
   t1:.z.t;
   dt:t1-.ng.var.t;
-  if[dt>1000;-1"dt=",string[dt],", n=",string[.ng.var.i-.ng.var.j],", nstates=",string[count .ng.var.states];.ng.var.j:.ng.var.i;.ng.var.t:t1];
+  if[dt>1000;-1"dt=",string[dt],", n=",string[.ng.var.i-.ng.var.j],", i=",string[.ng.var.i],", nstates=",string[.ng.var.nstates];.ng.var.j:.ng.var.i;.ng.var.t:t1];
+  h:hs[0];
   //-1"### type h=",string[type h];
-  //-1"solving ",string h;
-  s:.ng.var.states[h];
-  //-1"### a";
-  if[not count first s;:()];
+  //-1"solving "," "sv string h;
+  //if[.rb.member[h;.ng.var.states];:()];
+  //.ng.var.states:.rb.insertNode[h;.ng.var.states];
+  .ng.var.nstates:.ng.var.nstates+1;
+  //-1"nstates=",string[.ng.var.nstates];
+  s:hs[1];
+  //-1"### a, count=",string[count s];
+  //show s;
+  if[not count s;:()];
   //-1"### b";
   //show s;
   // calculate the percentage of unfilled cells in each line
@@ -194,8 +218,12 @@ solve:{[t;h]
   if[null nextid;-1"Found a solution:";show s;:()];
   //-1"### e";
   d:exec from t where id=nextid;
-  //-1"### f s=";
-  //show s;
+  //-1"### d=";
+  //show d;
+  //-1"### f s . d`coord=";
+  //show s . d`coord;
+  //-1"### d`line=";
+  //show d`line;
   retval:{[t;h;s;d;li]
   //-1"### g";
     l:d[`lines][li];
@@ -204,6 +232,8 @@ solve:{[t;h]
     i:d`coord;
   //-1"### i";
     o:.[s;i];
+  //-1"### j  o=";
+  //show o;
   //-1"### j0 i=";
   //show i;
   //-1"### j1 l=";
@@ -219,15 +249,14 @@ solve:{[t;h]
   //-1"### id=",string[d`id],", li=",string[li],", h=";show h;
     accepted:0b;
     // skip the new state if already seen via another path
-    if[not h in key .ng.var.states;
+    if[1b; //not .rb.member[h;.ng.var.states];
     //-1"### a";
-      // register the hash of the state in case it gets rejected
-      .ng.var.states[enlist h]:enlist();
       // check peers where cells transition from space to blank or mark
       affectedPeers:(d`peers) where (null o) & not null l;
       //-1", "sv string each affectedPeers;
-    //-1"### b";
+      //-1"### b";
       haveSolutions:{[s;d]
+        //-1"### b1";
         //show d;
         //show s;
         //-1 "good lines:";
@@ -246,13 +275,11 @@ solve:{[t;h]
     //-1"### .ng.var.states: "; show .ng.var.states;
     //-1"### h: "; show h;
     //-1"### s: "; show s;
-        .ng.var.states[enlist h]:enlist s;
-    //-1"### new .ng.var.states: "; show .ng.var.states;
         accepted:1b];
       ];
     //-1"### f h=";
     //show h;
-    returning:$[accepted;h;`int$()];
+    returning:$[accepted;(h;s);()];
     //-1"### returning: ",string[type returning],", count=",string count returning;
     //-1"about to return";
     returning
