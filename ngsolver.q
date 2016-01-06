@@ -92,7 +92,7 @@ fillgaps:{n:count y; k:$[n>2;n-2;0]; v:$[n>1;raze(1;k;1)#'0 1 0;enlist 0]; v+/:a
 expand:{v:raze flip(x;y); raze v#'count[v]#".M"}
 // generate all possible lines of length n for clue c
 genlines:{[n; c] expand[;c] each fillgaps[n;c]}
-pickgood:{v:(count y)#enlist x; all each (y=v)|null v}
+pickgood:{all each null[x]|/:x=/:y}
 // qidioms #142. binomial coefficients
 fac:{[n]$[n>1;n*fac[n-1];1]}
 binn:{[n;k]fac[n]%fac[n-k]*fac[k]}
@@ -169,35 +169,29 @@ solvePuzzle:{[p]
   //-1"### type h0=",string[type h];
   .ng.var.states:.rb.empty;
   .ng.var.t:.z.t;
+  .ng.var.dt:0;
   .ng.var.i:0;
   .ng.var.j:0;
+  .ng.var.nsol:0;
   .ng.var.nstates:0;
-  solvebatch[t;enlist (h;s)]
+  solve[t;h;s]
   }
 
-solvebatch:{[t;hs]
-  if[count hs;
-    hsn:();
-    hsn,:raze solve[t] each hs;
-    solvebatch[t;hsn]]
-  }
-
-solve:{[t;hs]
+solve:{[t;h;s]
   .ng.var.i:.ng.var.i+1;
   t1:.z.t;
   dt:t1-.ng.var.t;
-  if[dt>1000;-1"dt=",string[dt],", n=",string[.ng.var.i-.ng.var.j],", i=",string[.ng.var.i],", nstates=",string[.ng.var.nstates];.ng.var.j:.ng.var.i;.ng.var.t:t1];
-  h:hs[0];
+  if[dt>1000;-1"dt=",string[dt],", n=",string[.ng.var.i-.ng.var.j],", i=",string[.ng.var.i],", dt=",string[.ng.var.dt];.ng.var.dt:0;.ng.var.j:.ng.var.i;.ng.var.t:t1];
   //-1"### type h=",string[type h];
   //-1"solving "," "sv string h;
-  //if[.rb.member[h;.ng.var.states];:()];
+  if[.rb.member[h;.ng.var.states];:()];
   //.ng.var.states:.rb.insertNode[h;.ng.var.states];
-  .ng.var.nstates:.ng.var.nstates+1;
   //-1"nstates=",string[.ng.var.nstates];
-  s:hs[1];
+  //show .ng.var.states;
   //-1"### a, count=",string[count s];
   //show s;
   if[not count s;:()];
+  .ng.var.nstates:.ng.var.nstates+1;
   //-1"### b";
   //show s;
   // calculate the percentage of unfilled cells in each line
@@ -215,7 +209,8 @@ solve:{[t;hs]
   //show foo;
   //-1"nextid=",string[nextid];
   //u:select from t where id in 13 14;
-  if[null nextid;-1"Found a solution:";show s;:()];
+  //if[null nextid;-1"Found a solution:";show s;:()];
+  if[null nextid;{.ng.var.h x,"\n"}each s;if[.ng.var.nsol;.ng.var.h"\n"];.ng.var.h+1;:()];
   //-1"### e";
   d:exec from t where id=nextid;
   //-1"### d=";
@@ -224,7 +219,11 @@ solve:{[t;hs]
   //show s . d`coord;
   //-1"### d`line=";
   //show d`line;
-  retval:{[t;h;s;d;li]
+        t0:.z.t;
+  goodlines:.ng.pickgood[s . d`coord;d`lines];
+        dt:.z.t-t0;
+    .ng.var.dt:.ng.var.dt+dt;
+  {[t;h;s;d;li]
   //-1"### g";
     l:d[`lines][li];
   //-1"### h";
@@ -261,7 +260,10 @@ solve:{[t;hs]
         //show s;
         //-1 "good lines:";
     //-1"### c";
+        //t0:.z.t;
         goodLines:.ng.pickgood[s . d`coord;d`lines];
+        //dt:.z.t-t0;
+   // .ng.var.dt:.ng.var.dt+dt;
     //-1"### d";
         //show goodLines;
         //-1 string[d`label],": ncombs=",string[d`ncombs],", nlines=",string ns;
@@ -279,19 +281,16 @@ solve:{[t;hs]
       ];
     //-1"### f h=";
     //show h;
-    returning:$[accepted;(h;s);()];
+    if[accepted;solve[t;h;s]];
     //-1"### returning: ",string[type returning],", count=",string count returning;
     //-1"about to return";
-    returning
-    }[t;h;s;d] each where .ng.pickgood[s . d`coord;d`lines];
+    }[t;h;s;d] each where goodlines;
   //-1"returned";
-  //show retval;
-  retval
   };
 
 showPuzzle:{[p] p}
 
-processFile:{[x] showPuzzle solvePuzzle .non.parsePuzzle read0 hsym`$x};
+processFile:{[x] .ng.var.h:hopen`:solutions.txt; showPuzzle solvePuzzle .non.parsePuzzle read0 hsym`$x; hclose .ng.var.h};
 
 args:.Q.opt .z.x;
 if[not null .z.f;
