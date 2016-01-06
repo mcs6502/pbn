@@ -181,7 +181,7 @@ solve:{[t;h;s]
   .ng.var.i:.ng.var.i+1;
   t1:.z.t;
   dt:t1-.ng.var.t;
-  if[dt>1000;-1"dt=",string[dt],", n=",string[.ng.var.i-.ng.var.j],", i=",string[.ng.var.i],", dt=",string[.ng.var.dt];.ng.var.dt:0;.ng.var.j:.ng.var.i;.ng.var.t:t1];
+  if[dt>10000;-1"dt=",string[dt],", n=",string[.ng.var.i-.ng.var.j],", i=",string[.ng.var.i],", nsol=",string[.ng.var.nsol];.ng.var.dt:0;.ng.var.j:.ng.var.i;.ng.var.t:t1];
   //-1"### type h=",string[type h];
   //-1"solving "," "sv string h;
   if[.rb.member[h;.ng.var.states];:()];
@@ -203,14 +203,14 @@ solve:{[t;h;s]
   // calculate the solution priority of a line as a weighted average
   // of its static solution complexity and the percentage of untouched
   // cells in it
-  foo:`priority xasc update priority:0.25*unfilled+3*weight from foo;
+  foo:`priority xasc update priority:0.25*weight+3*unfilled from foo;
   nextid:first exec id from foo;
   //-1"### d";
   //show foo;
   //-1"nextid=",string[nextid];
   //u:select from t where id in 13 14;
   //if[null nextid;-1"Found a solution:";show s;:()];
-  if[null nextid;{.ng.var.h x,"\n"}each s;if[.ng.var.nsol;.ng.var.h"\n"];.ng.var.h+1;:()];
+  if[null nextid;{.ng.var.h x,"\n"}each s;if[.ng.var.nsol;.ng.var.h"\n"];.ng.var.nsol:.ng.var.nsol+1;:()];
   //-1"### e";
   d:exec from t where id=nextid;
   //-1"### d=";
@@ -268,7 +268,7 @@ solve:{[t;h;s]
         //show goodLines;
         //-1 string[d`label],": ncombs=",string[d`ncombs],", nlines=",string ns;
         any goodLines
-        }[s] each select from t where id in affectedPeers;
+        }[s] peach select from t where id in affectedPeers;
       //show haveSolutions;
     //-1"### e";
       if[all haveSolutions;
