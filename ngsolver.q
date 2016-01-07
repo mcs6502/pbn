@@ -165,8 +165,6 @@ solvePuzzle:{[p]
   if[()~p;:p];
   s:p[0];
   t:p[1];
-  h:count[t]#`int$0N;
-  //-1"### type h0=",string[type h];
   .ng.var.states:.rb.empty;
   .ng.var.t:.z.t;
   .ng.var.dt:0;
@@ -174,118 +172,91 @@ solvePuzzle:{[p]
   .ng.var.j:0;
   .ng.var.nsol:0;
   .ng.var.nstates:0;
-  solve[t;h;s]
+  solve[t;s]
   }
 
-solve:{[t;h;s]
-  .ng.var.i:.ng.var.i+1;
-  t1:.z.t;
-  dt:t1-.ng.var.t;
-  if[dt>10000;-1"dt=",string[dt],", n=",string[.ng.var.i-.ng.var.j],", i=",string[.ng.var.i],", nsol=",string[.ng.var.nsol];.ng.var.dt:0;.ng.var.j:.ng.var.i;.ng.var.t:t1];
-  //-1"### type h=",string[type h];
-  //-1"solving "," "sv string h;
-  if[.rb.member[h;.ng.var.states];:()];
-  //.ng.var.states:.rb.insertNode[h;.ng.var.states];
-  //-1"nstates=",string[.ng.var.nstates];
-  //show .ng.var.states;
-  //-1"### a, count=",string[count s];
-  //show s;
-  if[not count s;:()];
-  .ng.var.nstates:.ng.var.nstates+1;
+
+applyLine:{[t;s;d;li]
+  //-1"### g";
+  l:d[`lines][li];
+  //-1 l;
+  i:d`coord;
+  //-1"### i";
+  o:.[s;i];
+  // update the state with the new line
+  s[i[0];i[1]]:l;
+  //-1"### k";
+  // check peers where cells transition from space to blank or mark
+  affectedPeers:(d`peers) where (null o) & not null l;
+  //-1", "sv string each affectedPeers;
   //-1"### b";
-  //show s;
+  haveSolutions:{[s;d]
+    //t0:.z.t;
+    goodLines:.ng.pickgood[s . d`coord;d`lines];
+    //dt:.z.t-t0;
+    //.ng.var.dt:.ng.var.dt+dt;
+    //-1"### d";
+    //show goodLines;
+    //-1 string[d`label],": ncombs=",string[d`ncombs],", nlines=",string ns;
+    any goodLines
+    }[s] each select from t where id in affectedPeers;
+  //show haveSolutions;
+  //-1"### e";
+  //if[.ng.var.nstates>15;:()];
+  $[all haveSolutions;s;()]
+  }
+
+// returns id of the best line to solve next
+pickNextId:{[t;s]
   // calculate the percentage of unfilled cells in each line
-  foo2:select id, weight, size, unfilled:{sum null x . y}[s]each coord from t;
-  foo:update unfilled:unfilled%size from foo2;
-  // only consider the lines that have not been solved already
-  foo:select from foo where unfilled>0;
+  foo2:select id, weight, size, unfilled:sum each null s ./:coord from t;
+  foo2:update unfilled:unfilled%size from foo2;
   //-1"### c";
   // calculate the solution priority of a line as a weighted average
   // of its static solution complexity and the percentage of untouched
   // cells in it
-  foo:`priority xasc update priority:0.25*weight+3*unfilled from foo;
-  nextid:first exec id from foo;
+  foo2:`priority xasc update priority:0.25*weight+3*unfilled from foo2;
+  // only consider the lines that have not been solved already
+  foo:select from foo2 where unfilled>0;
+  first exec id from foo
+  }
+
+showStats:{
+  t1:.z.t;
+  dt:t1-.ng.var.t;
+  if[dt>10000;
+    -1"dt=",string[dt],", n=",string[.ng.var.i-.ng.var.j],
+      ", i=",string[.ng.var.i],", nsol=",string[.ng.var.nsol];
+    .ng.var.dt:0;.ng.var.j:.ng.var.i;.ng.var.t:t1;];
+  }
+
+foundSolution:{[s]
+  {.ng.var.h x,"\n"}each s;
+  if[.ng.var.nsol;.ng.var.h"\n"];
+  .ng.var.nsol:.ng.var.nsol+1;
+  }
+
+solve:{[t;s]
+  .ng.var.i:.ng.var.i+1;
+  showStats[];
+  if[not count s;:()];
+  .ng.var.nstates:.ng.var.nstates+1;
+  //-1"### b nstates=",string .ng.var.nstates;
+  nextid:pickNextId[t;s];
+  //-1"### c";
+  if[null nextid;foundSolution[s];:()];
   //-1"### d";
-  //show foo;
-  //-1"nextid=",string[nextid];
-  //u:select from t where id in 13 14;
-  //if[null nextid;-1"Found a solution:";show s;:()];
-  if[null nextid;{.ng.var.h x,"\n"}each s;if[.ng.var.nsol;.ng.var.h"\n"];.ng.var.nsol:.ng.var.nsol+1;:()];
-  //-1"### e";
   d:exec from t where id=nextid;
-  //-1"### d=";
-  //show d;
-  //-1"### f s . d`coord=";
-  //show s . d`coord;
-  //-1"### d`line=";
-  //show d`line;
-        t0:.z.t;
+  //-1"### d=";show d;
+  t0:.z.t;
   goodlines:.ng.pickgood[s . d`coord;d`lines];
-        dt:.z.t-t0;
-    .ng.var.dt:.ng.var.dt+dt;
-  {[t;h;s;d;li]
-  //-1"### g";
-    l:d[`lines][li];
-  //-1"### h";
-    //-1 l;
-    i:d`coord;
-  //-1"### i";
-    o:.[s;i];
-  //-1"### j  o=";
-  //show o;
-  //-1"### j0 i=";
-  //show i;
-  //-1"### j1 l=";
-  //show l;
-  //-1"### j2 s=";
-  //show s;
-    // update the state with the new line
-    s[i[0];i[1]]:l;
-  //-1"### k";
-    // calculate the hash of the new state
-    h[d`id]:`int$li;
-   // -1"###   type h=",string[type h],", type li=",string[type li];
-  //-1"### id=",string[d`id],", li=",string[li],", h=";show h;
-    accepted:0b;
-    // skip the new state if already seen via another path
-    if[1b; //not .rb.member[h;.ng.var.states];
-    //-1"### a";
-      // check peers where cells transition from space to blank or mark
-      affectedPeers:(d`peers) where (null o) & not null l;
-      //-1", "sv string each affectedPeers;
-      //-1"### b";
-      haveSolutions:{[s;d]
-        //-1"### b1";
-        //show d;
-        //show s;
-        //-1 "good lines:";
-    //-1"### c";
-        //t0:.z.t;
-        goodLines:.ng.pickgood[s . d`coord;d`lines];
-        //dt:.z.t-t0;
-   // .ng.var.dt:.ng.var.dt+dt;
-    //-1"### d";
-        //show goodLines;
-        //-1 string[d`label],": ncombs=",string[d`ncombs],", nlines=",string ns;
-        any goodLines
-        }[s] peach select from t where id in affectedPeers;
-      //show haveSolutions;
-    //-1"### e";
-      if[all haveSolutions;
-        //-1 string[d`label]," ",l;
-        //:solve[d`label;t;s]]
-    //-1"### .ng.var.states: "; show .ng.var.states;
-    //-1"### h: "; show h;
-    //-1"### s: "; show s;
-        accepted:1b];
-      ];
-    //-1"### f h=";
-    //show h;
-    if[accepted;solve[t;h;s]];
-    //-1"### returning: ",string[type returning],", count=",string count returning;
-    //-1"about to return";
-    }[t;h;s;d] each where goodlines;
-  //-1"returned";
+  dt:.z.t-t0;
+  .ng.var.dt:.ng.var.dt+dt;
+  //-1"goodlines=",string sum goodlines;
+  nextstates:applyLine[t;s;d] peach where goodlines;
+  //-1"#nextstates=",string count nextstates;
+  //show first each nextstates;
+  solve[t] each nextstates;
   };
 
 showPuzzle:{[p] p}
