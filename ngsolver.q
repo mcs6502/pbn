@@ -172,7 +172,8 @@ solvePuzzle:{[p]
   .ng.var.j:0;
   .ng.var.nsol:0;
   .ng.var.nstates:0;
-  solve[t;s]
+  .ng.var.maxdepth:0;
+  solve[0;t;s]
   }
 
 
@@ -226,25 +227,35 @@ showStats:{
   dt:t1-.ng.var.t;
   if[dt>10000;
     -1"dt=",string[dt],", n=",string[.ng.var.i-.ng.var.j],
-      ", i=",string[.ng.var.i],", nsol=",string[.ng.var.nsol];
-    .ng.var.dt:0;.ng.var.j:.ng.var.i;.ng.var.t:t1;];
+      ", nstates=",string[.ng.var.nstates],", nsol=",string[.ng.var.nsol],
+      ", maxdepth=",string[.ng.var.maxdepth];
+    .ng.var.dt:0;
+    .ng.var.j:.ng.var.i;
+    .ng.var.t:t1;
+    .ng.var.maxdepth:0];
   }
 
-foundSolution:{[s]
-  {.ng.var.h x,"\n"}each s;
-  if[.ng.var.nsol;.ng.var.h"\n"];
-  .ng.var.nsol:.ng.var.nsol+1;
+printState:{[s;i;h]
+  h string[i],"\n";
+  h each s,\:"\n";
+  if[i;h"\n"];
   }
 
-solve:{[t;s]
+solve:{[depth;t;s]
   .ng.var.i:.ng.var.i+1;
   showStats[];
   if[not count s;:()];
   .ng.var.nstates:.ng.var.nstates+1;
+  printState[s;.ng.var.nstates;.ng.var.log];
+  if[depth>.ng.var.maxdepth;.ng.var.maxdepth:depth];
   //-1"### b nstates=",string .ng.var.nstates;
   nextid:pickNextId[t;s];
+  .ng.var.log"nextid ",string[nextid],"\n\n";
   //-1"### c";
-  if[null nextid;foundSolution[s];:()];
+  if[null nextid;
+    printState[s;.ng.var.nsol;.ng.var.h];
+    .ng.var.nsol:.ng.var.nsol+1;
+    :()];
   //-1"### d";
   d:exec from t where id=nextid;
   //-1"### d=";show d;
@@ -256,12 +267,12 @@ solve:{[t;s]
   nextstates:applyLine[t;s;d] peach where goodlines;
   //-1"#nextstates=",string count nextstates;
   //show first each nextstates;
-  solve[t] each nextstates;
+  solve[depth+1;t] each nextstates;
   };
 
 showPuzzle:{[p] p}
 
-processFile:{[x] .ng.var.h:hopen`:solutions.txt; showPuzzle solvePuzzle .non.parsePuzzle read0 hsym`$x; hclose .ng.var.h};
+processFile:{[x] .ng.var.log:hopen`:ngsolver.log;.ng.var.h:hopen`:solutions.txt; showPuzzle solvePuzzle .non.parsePuzzle read0 hsym`$x; hclose .ng.var.log;hclose .ng.var.h};
 
 args:.Q.opt .z.x;
 if[not null .z.f;
