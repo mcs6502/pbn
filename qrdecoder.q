@@ -75,8 +75,36 @@ pat:{
   // (a zero means that pattern was not detected in the other direction)
   (where 0 in/:d+e)_d+e}
 
+grp:{
+  // distances between each pair of points
+  m:`int${d:y-x;sqrt sum d*d}/:\:[x;x];
+  // a list of coordinates for all elements of m
+  c:raze (til count m),/:\:til count m;
+  // keep the lower triangle of c (m is symmetrical)
+  c:c where {x[0]>x[1]} each c;
+  // order of coordinates for enumerating m in ascending order
+  o:iasc m ./:c;
+  // values of m in ascending order
+  v:m ./:c o;
+  //grouped:group m ./:c o;
+  // group segments by length
+  grouped:c (where differ v)_o;
+  // we want three points or more, so discard single segments
+  grouped:grouped where 1<count each grouped;
+  // q))grouped
+  // ((6 5;9 8);(1 0;2 0;4 3;5 3;7 6;8 6;10 9;11 9);(4 2;7 5;10 8)..
+  bitmaps:{{x[y]:11b;x}[x#0b;]each y}[count m;]each grouped;
+  // q))bitmaps
+  // ((000001100000b;000000001100b);(110000000000b;101000000000b;
+  // for each tuple, work out which points appears multiple times
+  pivots:{1<sum each flip x}each bitmaps;
+  // q))pivots
+  // (000000000000b;100100100100b;
+  brk
+  }
+
 // returns a list of QR codes detected in a file
-decode:{ pat digitise readFile x }
+decode:{ grp key pat digitise readFile x }
 
 if[not null .z.f;
   args:.Q.opt .z.x;
