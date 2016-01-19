@@ -75,6 +75,17 @@ pat:{
   // (a zero means that pattern was not detected in the other direction)
   (where 0 in/:d+e)_d+e}
 
+// choose k from list of n
+comb:{[k;l]
+  n:count l;
+  $[k<1;();
+    k=1;enlist each l;
+    k<n;raze {y[z],/:comb[x;(1+z)_y]}[k-1;l] each til 1+n-k;
+    enlist l]}
+
+//checkpts:{-1"x=";show x;-1"y=";show y;r:x where x[;y];-1"r=";show r;r}
+checkpts:{-1"x=";show x;-1"y=";show y;r:y,raze(where each x where x[;y])except\:y;-1"r=";show r;r}
+
 grp:{
   // distances between each pair of points
   m:`int${d:y-x;sqrt sum d*d}/:\:[x;x];
@@ -100,6 +111,11 @@ grp:{
   pivots:{1<sum each flip x}each bitmaps;
   // q))pivots
   // (000000000000b;100100100100b;
+  havepivots:any each pivots;
+  // q))any each pivots
+  // 010001100000000b
+  //show {1<sum each flip x}each bitmaps
+  pts:{-1"pivots:";show x;-1"bitmaps:";show y;each[checkpts y;where x]}'[pivots where havepivots;bitmaps where havepivots];
   brk
   }
 
