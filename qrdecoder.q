@@ -84,41 +84,88 @@ comb:{[k;l]
     enlist l]}
 
 //checkpts:{-1"x=";show x;-1"y=";show y;r:x where x[;y];-1"r=";show r;r}
-checkpts:{-1"x=";show x;-1"y=";show y;r:y,raze(where each x where x[;y])except\:y;-1"r=";show r;r}
+//checkpts:{-1"x=";show x;-1"y=";show y;r:y,raze(where each x where x[;y])except\:y;-1"r=";show r;r}
+// for a given set of segments' bitmaps and a pivot point, return all triplets
+// containing the pivot point and the ends of two segments originating from it
+checkpts:{y,/:comb[2;]raze(where each x where x[;y])except\:y}
 
+// z coordinate of cross product of two 2D vectors
+crossprod:{(x[0;0]*x[1;1])-x[0;1]*x[1;0]}
+
+// dot product
+dot:{sum x*y}
+dotprod:{dot[x 0;x 1]}
+
+// swaps 2nd and 3rd vertices
+swap12:{x 0 2 1}
+
+// two vectors from triangle
+trivec:{(x[1]-x 0;x[2]-x 0)}
+// q))trivec each x@/:raze triplets
+// ((0 18;18 0);(0 18;18 0);(0 18;18 0);(0 18;18 0);(-27 0;27 0);(-27 0;27 0)..
+
+// finds all isosceles right-angle triangles in a given set of vertices
+// q)show x
+// 4   21
+// 22  3
+// 22  21
+// 31  21
+// ..
+// show grp x
+// 4  3   4  21  22 3
+// 30 3   30 21  48 3
+// 57 3   57 21  75 3
+// 84  3  84  21 102 3
 grp:{
-  // distances between each pair of points
+  // distance between each pair of points
   m:`int${d:y-x;sqrt sum d*d}/:\:[x;x];
-  // a list of coordinates for all elements of m
+  // list of indices for each pair of points
   c:raze (til count m),/:\:til count m;
   // keep the lower triangle of c (m is symmetrical)
   c:c where {x[0]>x[1]} each c;
-  // order of coordinates for enumerating m in ascending order
+  // o is the order of coordinates for enumerating m in ascending order
   o:iasc m ./:c;
   // values of m in ascending order
   v:m ./:c o;
   //grouped:group m ./:c o;
-  // group segments by length
+  // pairs of indices (segments) grouped by distance between their points
   grouped:c (where differ v)_o;
-  // we want three points or more, so discard single segments
+  // we want three points or more, so discard groups with only one segment
   grouped:grouped where 1<count each grouped;
   // q))grouped
   // ((6 5;9 8);(1 0;2 0;4 3;5 3;7 6;8 6;10 9;11 9);(4 2;7 5;10 8)..
+  // express each segment as a bitmap of indices of its points/vertices
   bitmaps:{{x[y]:11b;x}[x#0b;]each y}[count m;]each grouped;
   // q))bitmaps
   // ((000001100000b;000000001100b);(110000000000b;101000000000b;
-  // for each tuple, work out which points appears multiple times
+  // work out which vertices appear multiple times in each group of segments
   pivots:{1<sum each flip x}each bitmaps;
   // q))pivots
   // (000000000000b;100100100100b;
-  havepivots:any each pivots;
+  // whether we have any pivots in a given distance-group
+  hp:any each pivots;
   // q))any each pivots
   // 010001100000000b
-  //show {1<sum each flip x}each bitmaps
-  pts:{-1"pivots:";show x;-1"bitmaps:";show y;each[checkpts y;where x]}'[pivots where havepivots;bitmaps where havepivots];
-  brk
+  triplets:{raze each[checkpts y;where x]}'[pivots where hp;bitmaps where hp];
+  // q))show triplets
+  // (0 1 2;3 4 5;6 7 8;9 10 11)
+  // (6 3 9;7 4 10;8 5 11)
+  // (3 1 7;4 0 6;6 4 10;7 3 9)
+  triangles:x@/:raze triplets;
+  // q))show triangles
+  // 4  3   4  21  22 3
+  // 30 3   30 21  48 3
+  // convert triangles into pairs of vectors
+  vecs:trivec each triangles;
+  // see  which pairs of vectors are swapped
+  rh:0<crossprod each vecs;
+  // unmirror triangles with swapped vertices
+  triangles[where rh]:swap12 each triangles where rh;
+  // return right-angled triangles only
+  triangles where not dotprod each vecs
   }
 
+//decode:{ grp key pat reverse flip reverse flip digitise readFile x }
 // returns a list of QR codes detected in a file
 decode:{ grp key pat digitise readFile x }
 
