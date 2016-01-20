@@ -167,7 +167,11 @@ grp:{
 
 //decode:{ grp key pat reverse flip reverse flip digitise readFile x }
 // returns a list of QR codes detected in a file
-decode:{ grp key pat digitise readFile x }
+decode:{
+  p:pat digitise readFile x;
+  // scale y coordinate of each vertex by the ratio w%h of pattern size
+  vertices:`int$floor(key p)*1,/:each[%/;value p];
+  grp vertices}
 
 if[not null .z.f;
   args:.Q.opt .z.x;
