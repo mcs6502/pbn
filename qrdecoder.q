@@ -117,8 +117,10 @@ trivec:{(x[1]-x 0;x[2]-x 0)}
 // 57 3   57 21  75 3
 // 84  3  84  21 102 3
 grp:{
+  // points' coordinates normalised by the size of the pattern module
+  p:x*7%y;
   // distance between each pair of points
-  m:`int${d:y-x;sqrt sum d*d}/:\:[x;x];
+  m:`int${d:y-x;sqrt sum d*d}/:\:[p;p];
   // list of indices for each pair of points
   c:raze (til count m),/:\:til count m;
   // keep the lower triangle of c (m is symmetrical)
@@ -165,13 +167,15 @@ grp:{
   triangles where not dotprod each vecs
   }
 
-//decode:{ grp key pat reverse flip reverse flip digitise readFile x }
+// +-->  <--+     ^  ^      1: x=x,  y=y;   2: x=y, y=-x;
+// |        |     |  |
+// v        v  <--+  +-->   3: x=-x, y=-y;  4: x=x, y=-y.
+//  (1)   (2)   (3)   (4)
+
 // returns a list of QR codes detected in a file
 decode:{
   p:pat digitise readFile x;
-  // scale y coordinate of each vertex by the ratio w%h of pattern size
-  vertices:`int$floor(key p)*1,/:each[%/;value p];
-  grp vertices}
+  grp[key p;value p]}
 
 if[not null .z.f;
   args:.Q.opt .z.x;
