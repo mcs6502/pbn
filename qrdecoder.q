@@ -29,15 +29,13 @@ digitise:{
   // back-to-back images
   @[lines;where not linesize=count each lines;{[x;y]x#0b}[linesize;]]}
 
+// run lengths from bitmap: 0110001111b -> 1 2 3 4
+runs:{{d:_[where differ x;x];count each d}each x}
+
 // search for finder patterns
 // x=boolean matrix
-patsearch:{[x]
-  //// the transpose requires equal-length rows
-  //x:@[x;where not linesize=count each x;{linesize#0b}];
-  //// we are going to work column-wise using row-oriented code, so transpose
-  //if[y;x:1+:/x];
+patsearch:{[r]
   // alternating lengths of runs of same colour
-  r:{d:_[where differ x;x];count each d}each x;
   // indices of 1 1 3 1 1 runs (each being one row in finder pattern's kernel)
   c1:{-1+(`char$`int$37+12*ratios each x)ss\:"1I)1"} r;
   c:raze {[x;y] x,/:y}'[til[count c1];c1];
@@ -61,19 +59,6 @@ patsearch:{[x]
   ////-1"i:";show i;
   //brk
   (pb+d)!pe-pb}
-
-// returns a dict of coordinates of all detected finder patterns;
-// the value is the size of the pattern (centred around its coords)
-pat:{
-  // row-wise pattern search
-  d:patsearch x;
-  // column-wise pattern search (using transposed lines)
-  e:patsearch 1+:/x;
-  // swap coordinates of column-wise search bringing them to common basis
-  e:(reverse each key e)!reverse each value e;
-  // combine two dicts discarding entries that have a zero coord
-  // (a zero means that pattern was not detected in the other direction)
-  (where 0 in/:d+e)_d+e}
 
 // choose k from list of n
 comb:{[k;l]
@@ -148,34 +133,63 @@ grp:{
   hp:any each pivots;
   // q))any each pivots
   // 010001100000000b
-  triplets:{raze each[checkpts y;where x]}'[pivots where hp;bitmaps where hp];
+  f:{raze each[checkpts y;where x]};
+  triplets:raze f'[pivots where hp;bitmaps where hp];
   // q))show triplets
   // (0 1 2;3 4 5;6 7 8;9 10 11)
   // (6 3 9;7 4 10;8 5 11)
   // (3 1 7;4 0 6;6 4 10;7 3 9)
-  triangles:x@/:raze triplets;
+  triangles:x@/:triplets;
   // q))show triangles
   // 4  3   4  21  22 3
   // 30 3   30 21  48 3
   // convert triangles into pairs of vectors
   vecs:trivec each triangles;
-  // see  which pairs of vectors are swapped
+  // see which pairs of vectors are oriented incorrectly
   rh:0<crossprod each vecs;
-  // unmirror triangles with swapped vertices
-  triangles[where rh]:swap12 each triangles where rh;
+  // swap 2nd and 3rd vertices in those triplets that need correcting
+  triplets[where rh]:swap12 each triplets where rh;
   // return right-angled triangles only
-  triangles where not dotprod each vecs
+  triplets:triplets where not dotprod each vecs;
+  triplets
   }
 
-// +-->  <--+     ^  ^      1: x=x,  y=y;   2: x=y, y=-x;
-// |        |     |  |
-// v        v  <--+  +-->   3: x=-x, y=-y;  4: x=x, y=-y.
-//  (1)   (2)   (3)   (4)
+pat:{
+  r:runs x;
+  // row-wise pattern search
+  d:patsearch r;
+  // column-wise pattern search (using transposed lines)
+  e:patsearch runs 1+:/x;
+  // swap coordinates of column-wise search bringing them to common basis
+  e:(reverse each key e)!reverse each value e;
+  // combine two dicts discarding entries that have a zero coord
+  // (a zero means that pattern was not detected in the other direction)
+  // p is a dict of coordinates of all detected finder patterns;
+  // the value is the size of the pattern (centred around its coords)
+  p:(where 0 in/:d+e)_d+e;
+  // indices of vertices combined by three: first is the centre (pivot),
+  // second is the right vertex, third is the bottom one.
+  // the actual orientation of qr symbol may be different:
+  // +-->  <--+     ^  ^      1: x=x,  y=y;   2: x=y, y=-x;
+  // |        |     |  |
+  // v        v  <--+  +-->   3: x=-x, y=-y;  4: x=-y, y=x.
+  //  (1)   (2)   (3)   (4)
+  v:key p;
+  triplets:grp[v;value p];
+  triangles:v@/:triplets;
+  vecs:trivec each triangles;
+  sizes:value[p]@/:triplets;
+  pv:symver'[triangles;sizes];
+  brk;
+  }
+
+symver:{[x;y] yd:(.[y;0 0]+.[y;2 0])%14;-1"yd=",string yd;xd:(.[y;0 1]+.[y;1 1])%14;-1"xd=",string xd;-1"y=";show y; v:trivec x;ver:0.25*(-10+.[v;0 1]%xd);-1"ver=",string ver;-1"v=";show v;(.[x;0 0]+v[0]+.[x;1 0])}
 
 // returns a list of QR codes detected in a file
 decode:{
-  p:pat digitise readFile x;
-  grp[key p;value p]}
+  b:digitise readFile x;
+  t:pat b;
+  }
 
 if[not null .z.f;
   args:.Q.opt .z.x;
