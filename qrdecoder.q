@@ -159,7 +159,55 @@ grp:{
   triples
   }
 
-pat:{
+// takes a triangle (list of its coords) and the dims of finder patters
+// at each vertex. returns a 3x3 matrix for transforming local vertex coords
+// (zero-based, upright symbol) to image coords. also returns integer
+// dimensions of the symbol (taken as coords, they would point beyond the
+// bottom-right corner). the returned matrix takes vertices in homogeneous
+// coordinates with z=1.
+matandsize:{[x;y]
+  // grp returns vertices in such order that
+  // v 0 is down and v 1 is across the symbol
+  v:trivec x;
+  u:norm each v;
+  // dimensions of finder patterns measured along symbol's axes (dimensions
+  // might be negative for right-to-left or bottom-to-top orientations)
+  s1:dot[u 0;]each y 0 1;
+  s2:dot[u 1;]each y 0 2;
+  // size of the symbol (either/both components could be negative)
+  d1:half[s1 0]+dot[u 0;len v 0]+s1[1]-half s1 1;
+  d2:half[s2 0]+dot[u 1;len v 1]+s2[1]-half s2 1;
+  // avg size of the module: x1 is down/y and x2 is across/x the symbol
+  x1:abs (sum s1)%14;
+  //-1"x1=";show x1;
+  x2:abs (sum s2)%14;
+  //-1"x2=";show x2;
+  // see if the symbol is oriented along the y axis
+  ywise:abs[u . 0 0]>abs u . 0 1;
+  vy:$[ywise;x1*u 0;x2*u 1];
+  vx:$[ywise;x2*u 1;x1*u 0];
+  // find the origin of the symbol
+  p0:`float$((x . 0 0)-half[$[ywise;s1;s2] 0];(x . 0 1)-half[$[ywise;s2;s1] 0]);
+  //-1"p0=";show p0;
+  //-1"vy=";show vy;
+  //-1"dot[vy;1 0]=",string dot[vy;1 0];
+  //-1"vx=";show vx;
+  //-1"dot[vx;0 1]=",string dot[vx;0 1];
+  // use one-module origin offset if respective axis is inverted
+  oy:$[ywise;x1;x2];
+  ox:$[ywise;x2;x1];
+  // transformation matrix from local symbol coordinates to image coords.
+  m:(vy,p0[0]-(not 0<dot[vy;1 0])*oy;vx,p0[1]-(not 0<dot[vx;0 1])*ox;0. 0. 1.);
+  //-1"x=";show x;
+  //-1"m=";show m;
+  pi:(0. 25. 0. 25.; 0. 0. 25. 25.;  4#1.);
+  //-1"pi=";show pi;
+  po:m mmu pi;
+  //-1"po=";show po;
+  (m;`int$abs(d1%x1;d2%x2))
+  }
+
+findsymbols:{
   r:runs x;
   // row-wise pattern search
   d:patsearch r;
@@ -175,66 +223,42 @@ pat:{
   // indices of vertices combined by three: first is the centre (pivot),
   // second is the bottom vertex, third is the right one.
   // the actual orientation of qr symbol may be different:
-  // +-->  <--+     ^  ^      1: y=y, x=x;  2: y=x, x=w-y;
-  // |        |     |  |
-  // v        v  <--+  +-->   3: y=h-y, x=w-x;  4: y=h-x, x=y.
-  //  (1)   (2)   (3)   (4)
+  // +-->  <--+     ^  ^      1: y=y,   x=x;
+  // |        |     |  |      2: y=x,   x=w-y;
+  // v        v  <--+  +-->   3: y=h-y, x=w-x;
+  //  (1)   (2)   (3)   (4)   4: y=h-x, x=y.
   v:key p;
   s:value p;
+  // group detected finder patterns into triples
   triples:grp[v;s];
+  // look up coordinates of each triple
   triangles:v@/:triples;
-  vecs:trivec each triangles;
+  // also look up dimensions of finder patterns for each triple
   sizes:value[p]@/:triples;
-  {[x;y]
-    v:trivec x;
-    u:norm each v;
-    s1:dot[u 0;]each y 0 1;
-    s2:dot[u 1;]each y 0 2;
-    d1:half[s1 0]+dot[u 0;len v 0]+s1[1]-half s1 1;
-    d2:half[s2 0]+dot[u 1;len v 1]+s2[1]-half s2 1;
-    x1:(sum s1)%14;
-    x2:(sum s2)%14;
-    // see if the symbol is oriented along the y axis
-    ywise:abs[u . 0 0]>abs u . 0 1;
-    // find the origin of the symbol
-    p0:((x . 0 0)-half[$[ywise;s1;s2] 0];(x . 0 1)-half[$[ywise;s2;s1] 0]);
-    m:($[ywise;abs[x1]*u 0;abs[x2]*u 1],`float$p0 0;$[ywise;abs[x2]*u 1;abs[x1]*u 0],`float$p0 1;0. 0. 1.);
-    -1"x=";show x;
-    //-1"v=";show v;
-    //-1"u=";show u;
-    //-1"x1=";show x1;
-    //-1"x2=";show x2;
-    //-1"s1=";show s1;
-    //-1"s2=";show s2;
-    //-1"d1=";show d1;
-    //-1"d2=";show d2;
-    //-1"p0=";show p0;
-    -1"m=";show m;
-    pi:(0. 25. 0. 25.; 0. 0. 25. 25.;  4#1.);
-    -1"pi=";show pi;
-    po:m mmu pi;
-    -1"po=";show po;
-    }'[triangles;sizes];
-  //// work out the size of each pattern in the direction of each vector
-  //s:{[x;y] {[x;y] dot[;y] each x}[x;] each {[x] x%len x}each y}'[sizes;vecs];
-  //{[x;y] v:trivec x;u:norm each v;-1"u=";show u}'[triangles;sizes];
-  //// half-widths of finder patterns (either component of rw can be 1 more
-  //// than the corresponding component in lw if the size is odd)
-  //lw:half sizes;
-  //rw:sizes-lw;
-  //// height and width of the symbol between centres of finder patterns
-  //hw:sqrt dot'[vecs;vecs];
-  //// now we need to add lw and rw to lt
-  //brk;
-  //pv:symver'[triangles;sizes];
+  matandsize'[triangles;sizes]
   }
 
-symver:{[x;y] yd:(.[y;0 0]+.[y;2 0])%14;-1"yd=",string yd;xd:(.[y;0 1]+.[y;1 1])%14;-1"xd=",string xd;-1"y=";show y; v:trivec x;ver:0.25*(-10+.[v;0 1]%xd);-1"ver=",string ver;-1"v=";show v;brk;(.[x;0 0]+v[0]+.[x;1 0])}
+// extract a qr symbol from an image bitmap using the symbol's transformation
+// matrix and size
+extract:{[b;ms]
+  m:ms 0;
+  //-1"m=";show m;
+  d:ms 1;
+  cy:`float$raze flip(d 1)#enlist til d 0; // 000011112222..
+  cx:`float$(prd d)#til d 1;               // 012301230123..
+  cz:count[cx]#1.;
+  c:m mmu (cy;cx;cz);
+  //-1"coords=";show 26#flip`int$(c 0;c 1);
+  // index b by pairs of coords from c and slice the result by symbol width
+  retval:(d[1]*til d 0)_b ./:flip`int$(c 0;c 1);
+  -1"retval=";show " @"retval;
+  retval
+  }
 
 // returns a list of QR codes detected in a file
 decode:{
   b:digitise readFile x;
-  t:pat b;
+  extract[b;]each findsymbols b;
   }
 
 if[not null .z.f;
