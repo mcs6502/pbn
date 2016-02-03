@@ -274,10 +274,37 @@ getfmt:{[qr]
   first where $[err<3;errs;()]=err
   }
 
+mask0:{[x] not(x[0]+x 1)mod 2}
+mask1:{[x] not x[0] mod 2}
+mask2:{[x] not x[1] mod 3}
+mask3:{[x] not(x[0]+x 1)mod 3}
+mask4:{[x] not((x[0] div 2)+x[1] div 3)mod 2}
+mask5:{[x] a:x[0]*x 1;not(a mod 2)+a mod 3}
+mask6:{[x] a:x[0]*x 1;not((a mod 2)+a mod 3)mod 2}
+mask7:{[x] a:x[0]*x 1;b:x[0]+x 1;not((b mod 2)+a mod 3)mod 2}
+masks:(mask0;mask1;mask2;mask3;mask4;mask5;mask6;mask7);
+//showmask:{-1 each" @"0N 14#value x;-1"";}
+//showmask each masks,\:enlist (flip 14 14#til 14;14 14#til 14)
+
+decode:{[qr]
+  fmt:getfmt qr;
+  ec:`M`L`H`Q fmt div 8;
+  maskno:fmt mod 8;
+  //-1"ec=",string[ec],", maskno=",string maskno;
+  m:count qr 0;
+  n:count qr;
+  mask:value masks[maskno],enlist(flip(m;n)#til n;(n;m)#til m);
+  //-1"mask=";show" @"mask;
+  // release the data masking
+  qr:not qr=mask;
+  //-1"qr=";show" @"qr;
+  fmt
+  }
+
 // returns a list of QR codes detected in the input file
-decode:{
+process:{[x]
   b:digitise readFile x;
-  getfmt each extract[b;] each findsymbols b
+  decode each extract[b;] each findsymbols b
   //brk;
   }
 
@@ -285,5 +312,5 @@ if[not null .z.f;
   args:.Q.opt .z.x;
   file:args`file;
   if[1>count file;file:enlist"solutions.txt"];
-  show decode each file;
+  (show each) each process each file;
   exit 0;];
