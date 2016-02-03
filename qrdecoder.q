@@ -251,14 +251,34 @@ extract:{[b;ms]
   //-1"coords=";show 26#flip`int$(c 0;c 1);
   // index b by pairs of coords from c and slice the result by symbol width
   retval:(d[1]*til d 0)_b ./:flip`int$(c 0;c 1);
-  -1"retval=";show " @"retval;
+  //-1"retval=";show " @"retval;
   retval
   }
 
-// returns a list of QR codes detected in a file
+// decodes format information from the qr symbol
+getfmt:{[qr]
+  validfmts:(101010000010010b;101000100100101b;101111001111100b;101101101001011b;100010111111001b;100000011001110b;100111110010111b;100101010100000b;111011111000100b;111001011110011b;111110110101010b;111100010011101b;110011000101111b;110001100011000b;110110001000001b;110100101110110b;001011010001001b;001001110111110b;001110011100111b;001100111010000b;000011101100010b;000001001010101b;000110100001100b;000100000111011b;011010101011111b;011000001101000b;011111100110001b;011101000000110b;010010010110100b;010000110000011b;010111011011010b;010101111101101b);
+  c1:flip (reverse(til 6),(7+til 2),(count[qr]-7)+til 7;15#8);
+  //-1"c1=";show c1;
+  c2:flip (15#8;(til 6),(7+til 1),(count[qr 8]-8)+til 8);
+  //-1"c2=";show c2;
+  c3:flip (15#8;(til 6),(7+til 2),(count[qr 8]-7)+til 7);
+  c4:(7#c1),-8#c2;
+  c5:(8#c3),-7#c1;
+  fmts:qr ./:/:(c1;c2;c3;c4;c5);
+  // see which of the valid formats has the least error compared to the
+  // five formats obtained from the symbol
+  errs:min each(sum each)each not fmts=\:/:validfmts;
+  err:min errs;
+  //-1"err=",string err;
+  first where $[err<3;errs;()]=err
+  }
+
+// returns a list of QR codes detected in the input file
 decode:{
   b:digitise readFile x;
-  extract[b;]each findsymbols b;
+  getfmt each extract[b;] each findsymbols b
+  //brk;
   }
 
 if[not null .z.f;
