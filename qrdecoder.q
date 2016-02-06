@@ -286,19 +286,34 @@ masks:(mask0;mask1;mask2;mask3;mask4;mask5;mask6;mask7);
 //showmask:{-1 each" @"0N 14#value x;-1"";}
 //showmask each masks,\:enlist (flip 14 14#til 14;14 14#til 14)
 
+// generates the snake path across the entire symbol
+// returning an array of coordinates
+snake:{[h;w]
+  // the path does not include column #6 because it is reserved in entirety
+  i:til h*w-1;
+  // o is the offset for skipping over column #6
+  o:i>=h*w-7;
+  // j is the index of 2-column ribbon piece
+  j:i div 2*h;
+  // d is the direction: 0=up, 1=down
+  d:j mod 2;
+  r:(i div 2)mod h;
+  c:(i mod 2)+2*j;
+  flip((d*r)+(1-d)*h-1+r;w-1+c+o)}
+
 decode:{[qr]
   fmt:getfmt qr;
   ec:`M`L`H`Q fmt div 8;
   maskno:fmt mod 8;
   //-1"ec=",string[ec],", maskno=",string maskno;
-  m:count qr 0;
-  n:count qr;
-  mask:value masks[maskno],enlist(flip(m;n)#til n;(n;m)#til m);
+  w:count qr 0;
+  h:count qr;
+  mask:value masks[maskno],enlist(flip(w;h)#til h;(h;w)#til w);
   //-1"mask=";show" @"mask;
   // release the data masking
   qr:not qr=mask;
   //-1"qr=";show" @"qr;
-  fmt
+  0N 8#qr ./:snake[h;w]
   }
 
 // returns a list of QR codes detected in the input file
