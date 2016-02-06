@@ -301,6 +301,9 @@ snake:{[h;w]
   c:(i mod 2)+2*j;
   flip((d*r)+(1-d)*h-1+r;w-1+c+o)}
 
+// returns true if coords belong to reserved region in the symbol
+reserved:{[v;c] y:c .(::;0);x:c .(::;1);s:8+4*v;((y<9)&x<9)|((not v)&(not y)|not x)|((0<v)&(y=6)|(x=6)|((y<9)&x>s)|(y>s)&x<9)|((1<v)&(7>v)&(not y<s)&(y<s+5)&(not x<s)&(x<s+5))|((6<v)&((5>(y-4)mod 16)&(5>(x-4)mod 16))&(not(y<9)&x>=s)&(not(y>=s)&x<9))|((6<v)&((y<6)&(x<=s)&x>s-3)|((y<=s)&(y>s-3)&x<6))}
+
 decode:{[qr]
   fmt:getfmt qr;
   ec:`M`L`H`Q fmt div 8;
@@ -313,7 +316,13 @@ decode:{[qr]
   // release the data masking
   qr:not qr=mask;
   //-1"qr=";show" @"qr;
-  0N 8#qr ./:snake[h;w]
+  c:snake[h;w];
+  v:(w-17)div 4;
+  //-1"v=",string v;
+  bits:qr ./:c where not reserved[v;c];
+  // slice into codewords discarding remainder bits
+  cw:0N 8#(neg count[bits]mod 8)_bits;
+  cw
   }
 
 // returns a list of QR codes detected in the input file
