@@ -257,6 +257,7 @@ extract:{[b;ms]
   //-1"coords=";show 26#flip`int$(c 0;c 1);
   // index b by pairs of coords from c and slice the result by symbol width
   retval:(d[1]*til d 0)_b ./:flip`int$(c 0;c 1);
+  if[not retval . 3 3;retval:not retval];
   //-1"retval=";show " @"retval;
   retval
   }
@@ -384,17 +385,46 @@ insert[`eccinfo;(8;`M;242;88;0;2 2;60 61;38 39;11 11)];
 insert[`eccinfo;(8;`Q;242;132;0;4 2;40 41;18 19;11 11)];
 insert[`eccinfo;(8;`H;242;156;0;4 2;40 41;14 15;13 13)];
 
-unravel:{[necb;ecc;cw]
-  $[1=count necb;
-    (0N;necb 0)#cw;
-    'wrongbc]
+// de-interleaves codewords: bc=block counts; bs=block sizes
+unravel:{[bc;bs;cw]
+  //-1"bc=";show bc;
+  //-1"bs=";show bs;
+  //-1"count cw=",string count cw;
+  n:sum bc;
+  //-1"n=",string n;
+  i:n*bs 0;
+  //-1"i=",string i;
+  blocks:flip (0N;n)#i#cw;
+  //-1"n1=",string count blocks;
+  $[i<count cw;
+    [ends:flip (0N;bc[1])#i _ cw;
+    //-1"n2=",string count ends;
+    (bc[0]#blocks),((neg bc[1])#blocks),'ends];
+    blocks]
+  }
+
+applyecc:{[db;cb] db}
+
+modes:7 1 2 4 8 3 5 9 0!`ECI`Num`Alpha`Byte`Kanji`Append`FNC1a`FNC1b`Term;
+
+sizes:{[v;m]
+  (`Num`Alpha`Byte`Kanji!
+    $[(0<v)&10>v;
+      10 9 8 8;
+      (9<v)&27>v;
+      12 11 16 10;
+      (26<v)&41>v;
+      14 13 16 12;
+      0N 0N 0N 0N])[m]
   }
 
 decode:{[qr]
+  //-1"qr=";show qr;
   fmt:getfmt qr;
   ec:`M`L`H`Q fmt div 8;
   maskno:fmt mod 8;
-  //-1"ec=",string[ec],", maskno=",string maskno;
+  //-1"ec=",string[ec];
+  //-1"maskno=",string maskno;
   w:count qr 0;
   h:count qr;
   //-1"h=",string[h],", w=",string[w];
@@ -412,18 +442,32 @@ decode:{[qr]
   //-1"v=",string v;
   //-1"n=",string sum not reserved[v;c];
   //show reserved[v;flip allcoords];
-  bits:qr ./:c where not reserved[v;c];
-  //-1"#bits=",string count bits;
+  cwbits:qr ./:c where not reserved[v;c];
+  //-1"#cwbits=",string count cwbits;
   // slice into codewords discarding remainder bits
-  cw:0N 8#(neg count[bits]mod 8)_bits;
+  cw:0N 8#(neg count[cwbits]mod 8)_cwbits;
   // # of data and ecc blocks depends on the symbol version and ecc level
   bi:exec from eccinfo where ver=v,ecl=ec;
   // split codewords into data and code sequences
   cwseq:(`int$0;bi[`ncw]-bi`necc)_cw;
-  show count each cwseq;
+  //-1"count each cwseq="," "sv string count each cwseq;
+  //-1"cwseq 0=";show cwseq 0;
   db:unravel[bi`b;bi`k;cwseq 0];
   cb:unravel[bi`b;bi[`c]-bi`k;cwseq 1];
-  cwseq
+  // obtain bit stream by combining data blocks
+  bits:raze raze each applyecc'[db;cb];
+  // the mode field is 4 bits for qr symbols (add support for micro qr later)
+  modebits:4;
+  show 2 sv modebits#bits;
+  m:modes 2 sv modebits#bits;
+  -1"m=",string m;
+  sizebits:sizes[v;m];
+  -1"sizebits=",string sizebits;
+  size:2 sv sizebits#modebits _ bits;
+  -1"size=",string size;
+  db:8*size;
+  data:"x"$2 sv (0N;size)#db#(modebits+sizebits)_bits;
+  -1"data=";show data;
   }
 
 // returns a list of QR codes detected in the input file
