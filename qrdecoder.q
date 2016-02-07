@@ -453,21 +453,25 @@ decode:{[qr]
   //-1"count each cwseq="," "sv string count each cwseq;
   //-1"cwseq 0=";show cwseq 0;
   db:unravel[bi`b;bi`k;cwseq 0];
+  //-1"db=";show db;
   cb:unravel[bi`b;bi[`c]-bi`k;cwseq 1];
   // obtain bit stream by combining data blocks
   bits:raze raze each applyecc'[db;cb];
   // the mode field is 4 bits for qr symbols (add support for micro qr later)
   modebits:4;
-  show 2 sv modebits#bits;
+  //show 2 sv modebits#bits;
   m:modes 2 sv modebits#bits;
-  -1"m=",string m;
+  //-1"m=",string m;
   sizebits:sizes[v;m];
-  -1"sizebits=",string sizebits;
+  //-1"sizebits=",string sizebits;
   size:2 sv sizebits#modebits _ bits;
-  -1"size=",string size;
+  //-1"size=",string size;
   db:8*size;
-  data:"x"$2 sv (0N;size)#db#(modebits+sizebits)_bits;
-  -1"data=";show data;
+  bytes:"x"$2 sv/:(0N;8)#db#(modebits+sizebits)_bits;
+  //-1"bytes=";show bytes;
+  data:"c"$bytes;
+  //-1"data=";show data;
+  data
   }
 
 // returns a list of QR codes detected in the input file
