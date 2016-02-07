@@ -1,6 +1,9 @@
 // Qidioms #144. histogram
 h:{@[(1+max x)#0;x;+;1]}
 
+// reads debug image in raw format
+readdata:{b:read1 hsym`$x;`int$(0N;floor sqrt count b)#b}
+
 // reads in a text file returning an int matrix of characters' intensities
 // x=file name
 readFile:{
@@ -10,7 +13,10 @@ readFile:{
   values:(1+max ramp)#0N;
   values[ramp]:til count ramp;
   // read the input file, mapping characters to their values
-  values`int$read0 hsym`$x}
+  $[x like "*.dat";
+    readdata x;
+    values`int$read0 hsym`$x]
+  }
 
 // converts image to binary by looking at average intensity
 // and also makes lines equal length (required for transpose)
@@ -301,8 +307,88 @@ snake:{[h;w]
   c:(i mod 2)+2*j;
   flip((d*r)+(1-d)*h-1+r;w-1+c+o)}
 
+alignpos:(
+  `long$();
+  `long$();
+  6 18;
+  6 22;
+  6 26;
+  6 30;
+  6 34;
+  6 22 38;
+  6 24 42;
+  6 26 46;
+  6 28 50;
+  6 30 54;
+  6 32 58;
+  6 34 62;
+  6 26 46 66;
+  6 26 48 70;
+  6 26 50 74;
+  6 30 54 78;
+  6 30 56 82;
+  6 30 58 86;
+  6 34 62 90;
+  6 28 50 72 94;
+  6 26 50 74 98;
+  6 30 54 78 102;
+  6 28 54 80 106;
+  6 32 58 84 110;
+  6 30 58 86 114;
+  6 34 62 90 118;
+  6 26 50 74 98 122;
+  6 30 54 78 102 126;
+  6 26 52 78 104 130;
+  6 30 56 82 108 134;
+  6 34 60 86 112 138;
+  6 30 58 86 114 142;
+  6 34 62 90 118 146;
+  6 30 54 78 102 126 150;
+  6 24 50 76 102 128 154;
+  6 28 54 80 106 132 158;
+  6 32 58 84 110 136 162;
+  6 26 54 82 110 138 166;
+  6 30 58 86 114 142 170);
+
 // returns true if coords belong to reserved region in the symbol
-reserved:{[v;c] y:c .(::;0);x:c .(::;1);s:8+4*v;((y<9)&x<9)|((not v)&(not y)|not x)|((0<v)&(y=6)|(x=6)|((y<9)&x>s)|(y>s)&x<9)|((1<v)&(7>v)&(not y<s)&(y<s+5)&(not x<s)&(x<s+5))|((6<v)&((5>(y-4)mod 16)&(5>(x-4)mod 16))&(not(y<9)&x>=s)&(not(y>=s)&x<9))|((6<v)&((y<6)&(x<=s)&x>s-3)|((y<=s)&(y>s-3)&x<6))}
+reserved:{[v;c]
+  y:c .(::;0);
+  x:c .(::;1);
+  s:8+4*v;
+  //-1"s=",string[s];
+  // root finder pattern--present in all versions
+  ((y<9)&x<9)|
+  // timing patterns in version 0
+  ((not v)&(not y)|not x)|
+  // the other two finder patterns and timing patterns in version 1 and greater
+  ((0<v)&(y=6)|(x=6)|((y<9)&x>s)|(y>s)&x<9)|
+  // alignment patterns (their number and location are version-dependent)
+  // check that both coords are within 2 modules of alignment pattern's centre,
+  // and that they do not fall in either of the non-central finder patterns
+  ((any 3>abs y-/:alignpos v)&(any 3>abs x-/:alignpos v)&not ((y<9)&x>=s)|(y>=s)&x<9)|
+  // two version information areas in version 7 and higher
+  ((6<v)&((y<6)&(x<=s)&x>s-3)|((y<=s)&(y>s-3)&x<6))
+  }
+
+eccinfo:([ver:`int$();ecl:`symbol$()] ncw:`int$();necc:`int$();p:`int$();b:();c:();k:();r:());
+insert[`eccinfo;(2;`L;44;10;2;enlist 1;enlist 44;enlist 34;enlist 4)];
+insert[`eccinfo;(2;`M;44;16;0;enlist 1;enlist 44;enlist 28;enlist 8)];
+insert[`eccinfo;(2;`Q;44;22;0;enlist 1;enlist 44;enlist 22;enlist 11)];
+insert[`eccinfo;(2;`H;44;28;0;enlist 1;enlist 44;enlist 16;enlist 14)];
+insert[`eccinfo;(5;`L;134;26;0;enlist 1;enlist 134;enlist 108;enlist 13)];
+insert[`eccinfo;(5;`M;134;48;0;enlist 2;enlist 67;enlist 43;enlist 12)];
+insert[`eccinfo;(5;`Q;134;72;0;2 2;33 34;15 16;9 9)];
+insert[`eccinfo;(5;`H;134;88;0;2 2;33 34;11 12;11 11)];
+insert[`eccinfo;(8;`L;242;48;0;enlist 2;enlist 121;enlist 97;enlist 12)];
+insert[`eccinfo;(8;`M;242;88;0;2 2;60 61;38 39;11 11)];
+insert[`eccinfo;(8;`Q;242;132;0;4 2;40 41;18 19;11 11)];
+insert[`eccinfo;(8;`H;242;156;0;4 2;40 41;14 15;13 13)];
+
+unravel:{[necb;ecc;cw]
+  $[1=count necb;
+    (0N;necb 0)#cw;
+    'wrongbc]
+  }
 
 decode:{[qr]
   fmt:getfmt qr;
@@ -311,23 +397,39 @@ decode:{[qr]
   //-1"ec=",string[ec],", maskno=",string maskno;
   w:count qr 0;
   h:count qr;
-  mask:value masks[maskno],enlist(flip(w;h)#til h;(h;w)#til w);
+  //-1"h=",string[h],", w=",string[w];
+  allcoords:(flip(w;h)#til h;(h;w)#til w);
+  //-1"allcoords=";show allcoords;
+  mask:value masks[maskno],enlist allcoords;
   //-1"mask=";show" @"mask;
   // release the data masking
   qr:not qr=mask;
   //-1"qr=";show" @"qr;
   c:snake[h;w];
+  //-1"#c=",string count c;
+  //-1"c=";show c;
   v:(w-17)div 4;
   //-1"v=",string v;
+  //-1"n=",string sum not reserved[v;c];
+  //show reserved[v;flip allcoords];
   bits:qr ./:c where not reserved[v;c];
+  //-1"#bits=",string count bits;
   // slice into codewords discarding remainder bits
   cw:0N 8#(neg count[bits]mod 8)_bits;
-  cw
+  // # of data and ecc blocks depends on the symbol version and ecc level
+  bi:exec from eccinfo where ver=v,ecl=ec;
+  // split codewords into data and code sequences
+  cwseq:(`int$0;bi[`ncw]-bi`necc)_cw;
+  show count each cwseq;
+  db:unravel[bi`b;bi`k;cwseq 0];
+  cb:unravel[bi`b;bi[`c]-bi`k;cwseq 1];
+  cwseq
   }
 
 // returns a list of QR codes detected in the input file
 process:{[x]
   b:digitise readFile x;
+  //show b;
   decode each extract[b;] each findsymbols b
   //brk;
   }
